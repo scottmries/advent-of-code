@@ -27,7 +27,6 @@ for value in values:
     if seatId > maximum:
         maximum = seatId
 
-
 print maximum
 
 seatIds.sort()
