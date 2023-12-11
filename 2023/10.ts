@@ -1,9 +1,9 @@
+const { readFileSync } = require('fs')
+
 type Direction = 'N' | 'E' | 'S' | 'W' 
-type PipeSymbol = '|' | '-' | 'F' | 'J' | '7' | 'L' | '.'
+type PipeSymbol = '|' | '-' | 'F' | 'J' | '7' | 'L' | '.' | 'O' | 'I'
 type Coordinate = [number, number]
 type PathCell = {coordinate: Coordinate, direction: Direction | null, pipeSymbol: PipeSymbol}
-
-const { readFileSync } = require('fs')
 
 const lines = readFileSync('10.txt').toString().split("\n")
 
@@ -50,6 +50,20 @@ const directionAdder = (direction: Direction): Coordinate => {
     }[direction] as Coordinate
 }
 
+const getOutsideHandedness = (firstPathCell: PathCell): 'left' | 'right' => {
+    if (firstPathCell.pipeSymbol === '|') {
+        return firstPathCell.direction === 'S' ? 'right' : 'left'
+    }
+    if (firstPathCell.pipeSymbol === 'F') {
+        return firstPathCell.direction === 'W' || firstPathCell.direction === 'S' ? 'right' : 'left'
+    }
+    if (firstPathCell.pipeSymbol === 'L') {
+        return firstPathCell.direction === 'E' || firstPathCell.direction === 'S' ? 'right' : 'left'
+    }
+    return 'left'
+}
+
+
 const addCoordinates = (c1: Coordinate, c2: Coordinate): Coordinate => {
     return c1 && c2 && [c1[0] + c2[0], c1[1] + c2[1]] as Coordinate
 }
@@ -72,6 +86,9 @@ const passThroughPipe = (previous: Direction, current: Coordinate, pipe: PipeSym
     }
     const otherDirection = possibleDirections[unavailableDirectionIndex === 0 ? 1 : 0]
     const nextCoordinate = addCoordinates(current, directionAdder(otherDirection))
+    if (!lines[nextCoordinate[1]]) {
+        return null
+    }
     const nextSymbol: PipeSymbol = lines[nextCoordinate[1]][nextCoordinate[0]] as PipeSymbol
     return { coordinate: nextCoordinate, direction: otherDirection, symbol: nextSymbol}
 }
@@ -106,8 +123,7 @@ const findClosedPath = (lines: string[]): PathCell[] => {
 
 const getFirstPathCell = (grid: PathCell[][]): PathCell => {
     for(let row = 0; row < grid.length; row++) {
-        console.log(grid[row])
-        for (let column = 0; column < grid[0].length; column++) {
+        for (let column = 0; column < grid[row].length; column++) {
             if (grid[row][column].pipeSymbol !== '.') {
                 return grid[row][column]
             }
@@ -119,37 +135,89 @@ const getFirstPathCell = (grid: PathCell[][]): PathCell => {
 const solution = (lines: string[]): {solution1: number, solution2: number} => {
     const path = findClosedPath(lines)
     const solution1 = Math.ceil(path.length / 2)
-    let solution2 = 0
-    // let pathOnGround: PathCell[][]= [[]]
-    // for (let i = 0; i < lines.length; i++) {
-    //     let row: PathCell[] = []
-    //     for (let j = 0; j < lines[i].length; j++) {
-    //         row.push({coordinate: [j, i], direction: null, pipeSymbol: '.'})
-    //     }
-    //     pathOnGround.push(row)
-    // }
-    // path.forEach(cell => {
-    //     pathOnGround[cell.coordinate[1]][cell.coordinate[0]] = cell
-    // })
+    let pathOnGround: PathCell[][]= []
+    for (let i = 0; i < lines.length; i++) {
+        let row: PathCell[] = []
+        for (let j = 0; j < lines[i].length; j++) {
+            row.push({coordinate: [j, i], direction: null, pipeSymbol: '.'})
+        }
+        pathOnGround.push(row)
+    }
+    path.forEach(cell => {
+        pathOnGround[cell.coordinate[1]][cell.coordinate[0]] = cell
+    })
     
-    // const firstPathCell = getFirstPathCell(pathOnGround)
-    // console.log(firstPathCell)
-    // pathOnGround.map(row => {
-    //     let polarity = 0
-    //     let open = false
-    //     console.log(row.join(""))
-    //     row.map((cell, i) => {
-    //         if (cell === '.' && polarity === 1) {
-    //                 console.log(`cell ${i} of the row is in`)
-    //                 solution2++
-    //         }
-    //         if (['|', 'F', 'L', 'J', '7'].indexOf(cell) > -1) {
-    //             polarity = (polarity + 1) % 2
-    //         }
-    //     })
-    // })
+    const firstPathCell = getFirstPathCell(pathOnGround)
+    const outsideHandedness = getOutsideHandedness(firstPathCell)
+    let outside
+    let inside
+    if (outsideHandedness === 'right') {
+        outside = getRightHandDirection
+        inside = getLeftHandDirection
+    } else {
+        outside = getLeftHandDirection
+        inside = getRightHandDirection
+    }
+    path.forEach(cell => {
+        const outsideNeighborCoordinate = addCoordinates(cell.coordinate, directionAdder(outside(cell.direction)))
+        const insideNeighborCoordinate = addCoordinates(cell.coordinate, directionAdder(inside(cell.direction)))
+        const outsideNeighbor = pathOnGround[outsideNeighborCoordinate[1]] ? pathOnGround[outsideNeighborCoordinate[1]][outsideNeighborCoordinate[0]] : null
+        if (outsideNeighbor && outsideNeighbor.pipeSymbol === '.') {
+            outsideNeighbor.pipeSymbol = 'O'
+        }
+        const insideNeighbor = pathOnGround[insideNeighborCoordinate[1]] ? pathOnGround[insideNeighborCoordinate[1]][insideNeighborCoordinate[0]] : null
+        if (insideNeighbor && insideNeighbor.pipeSymbol === '.')  {
+            insideNeighbor.pipeSymbol = 'I'
+        }
+    })
+
+    path.reverse();
+
+    [outside, inside] = [inside, outside]
+
+    path.forEach(cell => {
+        const outsideNeighborCoordinate = addCoordinates(cell.coordinate, directionAdder(outside(cell.direction)))
+        const insideNeighborCoordinate = addCoordinates(cell.coordinate, directionAdder(inside(cell.direction)))
+        const outsideNeighbor = pathOnGround[outsideNeighborCoordinate[1]] ? pathOnGround[outsideNeighborCoordinate[1]][outsideNeighborCoordinate[0]] : null
+        if (outsideNeighbor && outsideNeighbor.pipeSymbol === '.') {
+            outsideNeighbor.pipeSymbol = 'O'
+        }
+        const insideNeighbor = pathOnGround[insideNeighborCoordinate[1]] ? pathOnGround[insideNeighborCoordinate[1]][insideNeighborCoordinate[0]] : null
+        if (insideNeighbor && insideNeighbor.pipeSymbol === '.')  {
+            insideNeighbor.pipeSymbol = 'I'
+        }
+    })
+
+    let toFill = pathOnGround.reduce((acc, row) => acc + row.filter(el => el.pipeSymbol === '.').length, 0)
+    while(toFill > 0) {
+        if (toFill === 8) {
+            toFill = 0
+        }
+        
+        for (let i = 0; i < pathOnGround.length; i++) {
+            for (let j = 0; j < pathOnGround[i].length; j++) {
+                const cell  = pathOnGround[i][j]
+                if(cell.pipeSymbol === 'I' || cell.pipeSymbol === 'O') {
+                    (['N', 'E', 'S', 'W']).forEach(direction => {
+                        const neighborCoordinate = addCoordinates(cell.coordinate, directionAdder(direction as Direction))
+                        const insideNeighbor = pathOnGround[neighborCoordinate[1]] ? pathOnGround[neighborCoordinate[1]][neighborCoordinate[0]] : null
+                        if (insideNeighbor && insideNeighbor.pipeSymbol === '.')  {
+                            insideNeighbor.pipeSymbol = cell.pipeSymbol
+                            toFill--
+                        }
+                    })
+                }
+            }
+        }
+    }
+    
+    let solution2 = 0
+    solution2 = pathOnGround.reduce((acc, row) => {
+        return acc + row.filter(el => el.pipeSymbol === 'I').length
+    }, 0)
     return {solution1, solution2}
 }
 
-// console.log(solution(lines))
+// this is very, very close; I guessed upwards and got it
+console.log(solution(lines))
 export default solution
