@@ -1,6 +1,6 @@
 const { readFileSync } = require('fs')
 
-const lines = readFileSync('11.txt').toString().split("\n")
+const lines = readFileSync('./11/11.txt').toString().split("\n")
 
 export const distance = (c1: [number, number], c2: [number, number], galaxy: string[][], expansion = 1): number => {
     const [minX, maxX] = [Math.min(c1[0], c2[0]), Math.max(c1[0], c2[0])]

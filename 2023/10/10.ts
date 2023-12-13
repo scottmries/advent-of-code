@@ -5,7 +5,7 @@ type PipeSymbol = '|' | '-' | 'F' | 'J' | '7' | 'L' | '.' | 'O' | 'I'
 type Coordinate = [number, number]
 type PathCell = {coordinate: Coordinate, direction: Direction | null, pipeSymbol: PipeSymbol}
 
-const lines = readFileSync('10.txt').toString().split("\n")
+const lines = readFileSync('./10/10.txt').toString().split("\n")
 
 const getPipeDirections = (pipe: PipeSymbol): Direction[] => {
     return {
